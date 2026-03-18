@@ -2,15 +2,23 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useGeminiLive } from '../hooks/useGeminiLive';
 import { Bot, Mic, MicOff, X, MessageSquare, AlertCircle, Loader2, Video, VideoOff, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UGANDAN_LANGUAGES, UgandanLanguage } from '../types';
+import { UGANDAN_LANGUAGES, UgandanLanguage, SoilData, ForecastData } from '../types';
 
 interface ChatbotProps {
   language: UgandanLanguage;
   onLanguageChange: (lang: UgandanLanguage) => void;
   onClose: () => void;
+  groundTruth?: SoilData | null;
+  skyTruth?: ForecastData | null;
 }
 
-export const Chatbot: React.FC<ChatbotProps> = ({ language, onLanguageChange, onClose }) => {
+export const Chatbot: React.FC<ChatbotProps> = ({ 
+  language, 
+  onLanguageChange, 
+  onClose,
+  groundTruth,
+  skyTruth
+}) => {
   const apiKey = process.env.GEMINI_API_KEY || '';
   const {
     isConnected,
@@ -26,7 +34,7 @@ export const Chatbot: React.FC<ChatbotProps> = ({ language, onLanguageChange, on
     stopRecording,
     startCamera,
     stopCamera
-  } = useGeminiLive(apiKey);
+  } = useGeminiLive(apiKey, groundTruth, skyTruth);
 
   useEffect(() => {
     setTargetLanguage(language);

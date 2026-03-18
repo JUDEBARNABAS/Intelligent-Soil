@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Farmer, SoilData, UgandanLanguage } from './types';
+import { Farmer, SoilData, UgandanLanguage, ForecastData } from './types';
 import { Dashboard } from './components/Dashboard';
 import { History } from './components/History';
 import { Chatbot } from './components/Chatbot';
@@ -14,6 +14,7 @@ import { NGODashboard } from './components/NGODashboard';
 import { Toast } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { exportToCSV } from './utils/export';
+import { earthService } from './services/earthService';
 import { AnimatePresence, motion } from 'framer-motion';
 import { 
   auth, 
@@ -42,6 +43,7 @@ export default function App() {
   const [history, setHistory] = useState<SoilData[]>([]);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [selectedSoilData, setSelectedSoilData] = useState<SoilData | null>(null);
+  const [skyTruth, setSkyTruth] = useState<ForecastData | null>(null);
   const [language, setLanguage] = useState<UgandanLanguage>('en');
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -49,6 +51,25 @@ export default function App() {
     message: '',
     isVisible: false,
   });
+
+  // Fetch Sky Truth for the current soil data
+  useEffect(() => {
+    const fetchSkyTruth = async () => {
+      const dataToUse = selectedSoilData || (history.length > 0 ? history[0] : null);
+      if (!dataToUse) {
+        setSkyTruth(null);
+        return;
+      }
+
+      try {
+        const forecast = await earthService.getForecast(dataToUse);
+        setSkyTruth(forecast);
+      } catch (error) {
+        console.error('Failed to fetch sky truth for chatbot:', error);
+      }
+    };
+    fetchSkyTruth();
+  }, [selectedSoilData, history]);
 
   // Track authentication state
   useEffect(() => {
@@ -306,6 +327,8 @@ export default function App() {
               language={language}
               onLanguageChange={setLanguage}
               onClose={() => setIsChatOpen(false)} 
+              groundTruth={selectedSoilData || (history.length > 0 ? history[0] : null)}
+              skyTruth={skyTruth}
             />
           )}
           {isFarmerManagerOpen && (

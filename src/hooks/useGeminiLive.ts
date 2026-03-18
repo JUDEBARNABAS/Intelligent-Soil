@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
-import { UgandanLanguage } from '../types';
+import { UgandanLanguage, SoilData, ForecastData } from '../types';
 import { sunbirdService } from '../services/sunbirdService';
 
-export const useGeminiLive = (apiKey: string) => {
+export const useGeminiLive = (apiKey: string, groundTruth?: SoilData | null, skyTruth?: ForecastData | null) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isCameraOn, setIsCameraOn] = useState(false);
@@ -22,6 +22,26 @@ export const useGeminiLive = (apiKey: string) => {
     try {
       const ai = new GoogleGenAI({ apiKey });
       
+      const groundTruthInfo = groundTruth ? `
+        GROUND TRUTH (Soil Sensor Data):
+        - Temperature: ${groundTruth.temperature}°C
+        - Humidity: ${groundTruth.humidity}%
+        - pH: ${groundTruth.ph}
+        - Nitrogen: ${groundTruth.nitrogen} mg/kg
+        - Phosphorus: ${groundTruth.phosphorus} mg/kg
+        - Potassium: ${groundTruth.potassium} mg/kg
+        - Conductivity: ${groundTruth.conductivity} mS/cm
+        - Overall Fertility: ${groundTruth.fertility}%
+        - Location: Lat ${groundTruth.location?.latitude}, Lon ${groundTruth.location?.longitude}
+      ` : "No ground truth soil data available yet.";
+
+      const skyTruthInfo = skyTruth ? `
+        SKY TRUTH (Satellite & Weather Intelligence):
+        - Yield Forecast: ${skyTruth.yieldForecast}
+        - Weather Forecast: ${skyTruth.weatherForecast}
+        - Agroecological Recommendations: ${skyTruth.agroecologicalRecommendations}
+      ` : "No sky truth satellite/weather data available yet.";
+
       const session = await ai.live.connect({
         model: "gemini-2.5-flash-native-audio-preview-09-2025",
         callbacks: {
@@ -70,7 +90,17 @@ export const useGeminiLive = (apiKey: string) => {
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } },
           },
-          systemInstruction: "You are an expert agronomist. Help the user understand their soil sensor data and provide advice on crop management, fertilization, and soil health. You can see the user's camera feed, so use it to identify plants, pests, or soil conditions. Be concise and professional. Respond in English.",
+          systemInstruction: `
+            You are an expert agronomist. Help the user understand their soil sensor data and provide advice on crop management, fertilization, and soil health. 
+            
+            ${groundTruthInfo}
+            
+            ${skyTruthInfo}
+            
+            You can see the user's camera feed, so use it to identify plants, pests, or soil conditions. 
+            Be concise and professional. Respond in English. 
+            Always refer to the ground truth and sky truth data when providing advice.
+          `,
         },
       });
       
@@ -78,7 +108,7 @@ export const useGeminiLive = (apiKey: string) => {
     } catch (err: any) {
       setError(err.message);
     }
-  }, [apiKey, targetLanguage]);
+  }, [apiKey, targetLanguage, groundTruth, skyTruth]);
 
   const startRecording = async () => {
     if (!isConnected || !sessionRef.current) return;
