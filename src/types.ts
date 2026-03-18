@@ -56,3 +56,10 @@ export interface SensorConfig {
   icon: string;
   color: string;
 }
+
+export interface NGODashboardData {
+  totalFarmers: number;
+  totalTests: number;
+  recentTests: SoilData[];
+  farmers: Farmer[];
+}

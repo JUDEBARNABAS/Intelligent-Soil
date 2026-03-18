@@ -10,6 +10,7 @@ import { History } from './components/History';
 import { Chatbot } from './components/Chatbot';
 import { FarmerManager } from './components/FarmerManager';
 import { ForecastView } from './components/ForecastView';
+import { NGODashboard } from './components/NGODashboard';
 import { Toast } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { exportToCSV } from './utils/export';
@@ -35,7 +36,7 @@ import { User } from 'firebase/auth';
 import { LogIn, LogOut, Loader2, Sprout, Users, Globe } from 'lucide-react';
 
 export default function App() {
-  const [view, setView] = useState<'dashboard' | 'history' | 'forecast'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'history' | 'forecast' | 'ngo'>('dashboard');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isFarmerManagerOpen, setIsFarmerManagerOpen] = useState(false);
   const [history, setHistory] = useState<SoilData[]>([]);
@@ -208,6 +209,13 @@ export default function App() {
       <div className="min-h-screen bg-gray-50 font-sans text-gray-900 overflow-x-hidden">
         <div className="max-w-md mx-auto px-4 pt-4 flex justify-between items-center">
           <button 
+            onClick={() => setView('ngo')}
+            className="flex items-center space-x-2 text-[10px] font-bold text-emerald-600 uppercase tracking-widest hover:text-emerald-700 transition-colors"
+          >
+            <Globe size={12} />
+            <span>NGO Portal</span>
+          </button>
+          <button 
             onClick={() => setIsFarmerManagerOpen(true)}
             className="flex items-center space-x-2 text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors"
           >
@@ -263,7 +271,7 @@ export default function App() {
                 }}
               />
             </motion.div>
-          ) : (
+          ) : view === 'forecast' ? (
             <motion.div
               key="forecast"
               initial={{ opacity: 0, scale: 0.9 }}
@@ -278,6 +286,16 @@ export default function App() {
                 onBack={() => setView('dashboard')}
                 onShare={handleShareProfile}
               />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="ngo"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <NGODashboard onBack={() => setView('dashboard')} />
             </motion.div>
           )}
         </AnimatePresence>
