@@ -1,0 +1,5 @@
+{
+  "name": "Intelligent Soil Sensor App",
+  "description": "An 8-in-1 soil sensor app with GPS tracking, data export, and an AI agronomist chatbot powered by Gemini Live.",
+  "requestFramePermissions": ["geolocation", "microphone", "camera"]
+}

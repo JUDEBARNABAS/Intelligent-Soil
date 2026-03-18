@@ -1,0 +1,57 @@
+{
+  "entities": {
+    "Farmer": {
+      "title": "Farmer",
+      "description": "Profile of a farmer for whom the agronomist is testing.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Farmer's full name" },
+        "phone": { "type": "string", "description": "Farmer's phone number" },
+        "email": { "type": "string", "description": "Farmer's email address" },
+        "farmName": { "type": "string", "description": "Name of the farm" },
+        "farmLocation": { "type": "string", "description": "General location or address of the farm" },
+        "uid": { "type": "string", "description": "User ID of the agronomist who created this profile" },
+        "createdAt": { "type": "number", "description": "Creation timestamp" }
+      },
+      "required": ["name", "farmName", "uid", "createdAt"]
+    },
+    "SoilTest": {
+      "title": "Soil Test",
+      "description": "A single soil sensor measurement with GPS location and farmer link.",
+      "type": "object",
+      "properties": {
+        "temperature": { "type": "number", "description": "Temperature in Celsius" },
+        "humidity": { "type": "number", "description": "Humidity percentage" },
+        "conductivity": { "type": "number", "description": "Conductivity in us/cm" },
+        "ph": { "type": "number", "description": "PH value" },
+        "nitrogen": { "type": "number", "description": "Nitrogen in mg/kg" },
+        "phosphorus": { "type": "number", "description": "Phosphorus in mg/kg" },
+        "potassium": { "type": "number", "description": "Potassium in mg/kg" },
+        "fertility": { "type": "number", "description": "Fertility in mg/kg" },
+        "timestamp": { "type": "number", "description": "Unix timestamp of the test" },
+        "uid": { "type": "string", "description": "User ID of the owner" },
+        "farmerId": { "type": "string", "description": "ID of the farmer profile" },
+        "farmerName": { "type": "string", "description": "Name of the farmer (denormalized)" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "latitude": { "type": "number" },
+            "longitude": { "type": "number" }
+          },
+          "required": ["latitude", "longitude"]
+        }
+      },
+      "required": ["temperature", "humidity", "conductivity", "ph", "nitrogen", "phosphorus", "potassium", "fertility", "timestamp", "uid"]
+    }
+  },
+  "firestore": {
+    "/soil_tests/{testId}": {
+      "schema": "SoilTest",
+      "description": "Collection of soil tests performed by users."
+    },
+    "/farmers/{farmerId}": {
+      "schema": "Farmer",
+      "description": "Collection of farmer profiles managed by agronomists."
+    }
+  }
+}
