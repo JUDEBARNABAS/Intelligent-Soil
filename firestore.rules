@@ -36,6 +36,17 @@ service cloud.firestore {
     //   - uid: string (required) - Agronomist's UID
     //   - createdAt: number (required)
     //
+    // Collection: knowledge_base
+    // Document ID: auto-generated
+    // Fields:
+    //   - title: string (required)
+    //   - content: string (optional)
+    //   - timestamp: number (required)
+    //   - fileUrl: string (optional)
+    //   - fileName: string (optional)
+    //   - fileType: string (optional)
+    //   - uid: string (required)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -57,6 +68,19 @@ service cloud.firestore {
       return isAuthenticated() &&
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
           (request.auth.token.email == "intelligentsoil.ai@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isPartner() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'partner';
+    }
+
+    function getPartnerId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.partnerId;
+    }
+
+    function isPartnerData() {
+      return isPartner() && resource.data.partnerId == getPartnerId();
     }
 
     function hasRequiredFields(fields) {
@@ -92,6 +116,7 @@ service cloud.firestore {
              data.fertility is number &&
              data.timestamp is number &&
              data.uid is string &&
+             (!('partnerId' in data) || (data.partnerId is string || data.partnerId == null)) &&
              (!('farmerId' in data) || (data.farmerId is string && data.farmerId.size() < 50)) &&
              (!('farmerName' in data) || (data.farmerName is string && data.farmerName.size() < 100)) &&
              (!('location' in data) || (data.location is map && data.location.latitude is number && data.location.longitude is number));
@@ -103,9 +128,21 @@ service cloud.firestore {
              data.farmName is string && data.farmName.size() > 0 && data.farmName.size() < 100 &&
              data.uid is string &&
              data.createdAt is number &&
+             (!('partnerId' in data) || (data.partnerId is string || data.partnerId == null)) &&
              (!('phone' in data) || (data.phone is string && data.phone.size() < 20)) &&
              (!('email' in data) || (data.email is string && data.email.size() < 100)) &&
              (!('farmLocation' in data) || (data.farmLocation is string && data.farmLocation.size() < 200));
+    }
+
+    function isValidKnowledgeEntry(data) {
+      return hasRequiredFields(['title', 'timestamp', 'uid']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.timestamp is number &&
+             data.uid is string &&
+             (!('content' in data) || (data.content is string && data.content.size() < 5000)) &&
+             (!('fileUrl' in data) || (data.fileUrl is string && data.fileUrl.size() < 1000)) &&
+             (!('fileName' in data) || (data.fileName is string && data.fileName.size() < 255)) &&
+             (!('fileType' in data) || (data.fileType is string && data.fileType.size() < 100));
     }
 
     // ===============================================================
@@ -113,24 +150,36 @@ service cloud.firestore {
     // ===============================================================
 
     match /soil_tests/{testId} {
-      allow read: if isDocOwner() || isAdmin();
+      allow read: if isDocOwner() || isPartnerData() || isAdmin();
       allow create: if isAuthenticated() && isValidSoilTest(request.resource.data) && uidUnchanged();
       allow update: if false; // Soil tests are immutable once saved
       allow delete: if isDocOwner() || isAdmin();
     }
 
     match /farmers/{farmerId} {
-      allow read: if isDocOwner() || isAdmin();
+      allow read: if isDocOwner() || isPartnerData() || isAdmin();
       allow create: if isAuthenticated() && isValidFarmer(request.resource.data) && uidUnchanged();
       allow update: if isDocOwner() && isValidFarmer(request.resource.data) && uidNotModified();
       allow delete: if isDocOwner() || isAdmin();
     }
 
+    match /knowledge_base/{entryId} {
+      allow read: if isAuthenticated(); // All agronomists can read expert knowledge
+      allow create: if isAuthenticated() && isValidKnowledgeEntry(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidKnowledgeEntry(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isPartner() || isAdmin();
       allow create: if isAuthenticated() && isOwner(userId) && request.resource.data.role == 'user';
       allow update: if isAdmin(); // Only admins can change roles
       allow delete: if isAdmin();
+    }
+
+    match /partners/{partnerId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     // Default deny

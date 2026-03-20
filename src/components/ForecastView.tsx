@@ -137,7 +137,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({ groundTruth, farmer,
       - Potassium: ${groundTruth.potassium}
       - Fertility: ${groundTruth.fertility}%
       
-      SKY TRUTH (Alfa Earth):
+      SKY TRUTH (Soil and weather intelligence):
       - Yield Forecast: ${activeForecast.yieldForecast}
       - Weather: ${activeForecast.weatherForecast}
       - Agroecological Recommendations: ${activeForecast.agroecologicalRecommendations}
@@ -157,7 +157,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({ groundTruth, farmer,
           <ArrowLeft size={20} />
         </button>
         <div className="text-center">
-          <h1 className="text-xl font-bold text-gray-900">Alfa Earth Intelligence</h1>
+          <h1 className="text-xl font-bold text-gray-900">Soil and weather intelligence</h1>
           <p className="text-[10px] text-indigo-600 uppercase tracking-widest font-bold">Ground + Sky Truth</p>
         </div>
         <div className="w-10" />
@@ -178,7 +178,7 @@ export const ForecastView: React.FC<ForecastViewProps> = ({ groundTruth, farmer,
             </div>
             <div className="text-center">
               <p className="text-sm font-bold text-gray-900">Synthesizing Sky Truth...</p>
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">Alfa Earth Foundation Model</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest">Soil and weather intelligence Foundation Model</p>
             </div>
           </motion.div>
         ) : error ? (

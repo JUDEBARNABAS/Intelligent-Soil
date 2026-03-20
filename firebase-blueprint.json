@@ -11,6 +11,7 @@
         "farmName": { "type": "string", "description": "Name of the farm" },
         "farmLocation": { "type": "string", "description": "General location or address of the farm" },
         "uid": { "type": "string", "description": "User ID of the agronomist who created this profile" },
+        "partnerId": { "type": "string", "description": "ID of the partner organization" },
         "createdAt": { "type": "number", "description": "Creation timestamp" }
       },
       "required": ["name", "farmName", "uid", "createdAt"]
@@ -30,6 +31,7 @@
         "fertility": { "type": "number", "description": "Fertility in mg/kg" },
         "timestamp": { "type": "number", "description": "Unix timestamp of the test" },
         "uid": { "type": "string", "description": "User ID of the owner" },
+        "partnerId": { "type": "string", "description": "ID of the partner organization" },
         "farmerId": { "type": "string", "description": "ID of the farmer profile" },
         "farmerName": { "type": "string", "description": "Name of the farmer (denormalized)" },
         "location": {
@@ -42,6 +44,45 @@
         }
       },
       "required": ["temperature", "humidity", "conductivity", "ph", "nitrogen", "phosphorus", "potassium", "fertility", "timestamp", "uid"]
+    },
+    "KnowledgeEntry": {
+      "title": "Knowledge Entry",
+      "description": "Expert advice or documentation for the AI agronomist.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Topic of the knowledge" },
+        "content": { "type": "string", "description": "Textual advice or summary" },
+        "timestamp": { "type": "number", "description": "Creation timestamp" },
+        "fileUrl": { "type": "string", "description": "URL to uploaded PDF/Video/Audio" },
+        "fileName": { "type": "string", "description": "Original name of the file" },
+        "fileType": { "type": "string", "description": "MIME type of the file" },
+        "uid": { "type": "string", "description": "User ID of the creator" }
+      },
+      "required": ["title", "timestamp", "uid"]
+    },
+    "Partner": {
+      "title": "Partner",
+      "description": "An organization or NGO that manages a group of field operators.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Organization name" },
+        "location": { "type": "string", "description": "Headquarters location" },
+        "contactEmail": { "type": "string", "description": "Primary contact email" }
+      },
+      "required": ["name", "contactEmail"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A field operator or administrator.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "User's full name" },
+        "email": { "type": "string", "description": "User's email address" },
+        "role": { "type": "string", "enum": ["admin", "user", "partner"], "description": "User's role" },
+        "partnerId": { "type": "string", "description": "ID of the partner organization" },
+        "partnerName": { "type": "string", "description": "Name of the partner organization" }
+      },
+      "required": ["name", "email", "role"]
     }
   },
   "firestore": {
@@ -52,6 +93,18 @@
     "/farmers/{farmerId}": {
       "schema": "Farmer",
       "description": "Collection of farmer profiles managed by agronomists."
+    },
+    "/knowledge_base/{entryId}": {
+      "schema": "KnowledgeEntry",
+      "description": "Collection of expert knowledge and documentation."
+    },
+    "/partners/{partnerId}": {
+      "schema": "Partner",
+      "description": "Collection of partner organizations."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user profiles and roles."
     }
   }
 }

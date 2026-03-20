@@ -69,7 +69,7 @@ export const History: React.FC<HistoryProps> = ({ data, onBack, onDelete, onExpo
                   <button 
                     onClick={() => onForecast(item)}
                     className="text-emerald-500 hover:text-emerald-700 transition-colors p-1"
-                    title="Alfa Earth Intelligence"
+                    title="Soil and weather intelligence"
                   >
                     <Globe size={16} />
                   </button>

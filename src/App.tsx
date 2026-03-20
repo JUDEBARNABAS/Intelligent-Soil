@@ -3,14 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Farmer, SoilData, UgandanLanguage, ForecastData } from './types';
 import { Dashboard } from './components/Dashboard';
 import { History } from './components/History';
 import { Chatbot } from './components/Chatbot';
 import { FarmerManager } from './components/FarmerManager';
 import { ForecastView } from './components/ForecastView';
-import { NGODashboard } from './components/NGODashboard';
+import { PartnerDashboard } from './components/PartnerDashboard';
+import { KnowledgeBase } from './components/KnowledgeBase';
 import { Toast } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { exportToCSV } from './utils/export';
@@ -34,12 +35,15 @@ import {
   OperationType 
 } from './firebase';
 import { User } from 'firebase/auth';
-import { LogIn, LogOut, Loader2, Sprout, Users, Globe } from 'lucide-react';
+import { LogIn, LogOut, Loader2, Sprout, Users, Globe, Smartphone, QrCode, X as CloseIcon, Download } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 
 export default function App() {
-  const [view, setView] = useState<'dashboard' | 'history' | 'forecast' | 'ngo'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'history' | 'forecast' | 'partner'>('dashboard');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isFarmerManagerOpen, setIsFarmerManagerOpen] = useState(false);
+  const [isKnowledgeBaseOpen, setIsKnowledgeBaseOpen] = useState(false);
+  const [isMobileAccessOpen, setIsMobileAccessOpen] = useState(false);
   const [history, setHistory] = useState<SoilData[]>([]);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [selectedSoilData, setSelectedSoilData] = useState<SoilData | null>(null);
@@ -52,20 +56,58 @@ export default function App() {
     isVisible: false,
   });
 
+  const getAppUrl = () => {
+    if (process.env.SHARED_APP_URL && process.env.SHARED_APP_URL !== '') {
+      return process.env.SHARED_APP_URL;
+    }
+    const base = process.env.APP_URL || window.location.origin;
+    return base.replace('-dev-', '-pre-');
+  };
+
+  const appUrl = getAppUrl();
+
+  const downloadQRCode = () => {
+    const canvas = document.getElementById('mobile-qr-code') as HTMLCanvasElement;
+    if (canvas) {
+      const url = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = 'intelligent-soil-qr.png';
+      link.href = url;
+      link.click();
+      setToast({ message: 'QR Code downloaded!', isVisible: true });
+    }
+  };
+
   // Fetch Sky Truth for the current soil data
+  const lastFetchedId = useRef<string | null>(null);
+  const isFetchingSkyTruth = useRef(false);
+
   useEffect(() => {
     const fetchSkyTruth = async () => {
       const dataToUse = selectedSoilData || (history.length > 0 ? history[0] : null);
       if (!dataToUse) {
         setSkyTruth(null);
+        lastFetchedId.current = null;
         return;
       }
 
+      const dataId = (dataToUse as any).id || dataToUse.timestamp.toString();
+      if (dataId === lastFetchedId.current || isFetchingSkyTruth.current) return;
+
       try {
+        isFetchingSkyTruth.current = true;
         const forecast = await earthService.getForecast(dataToUse);
         setSkyTruth(forecast);
-      } catch (error) {
+        lastFetchedId.current = dataId;
+      } catch (error: any) {
         console.error('Failed to fetch sky truth for chatbot:', error);
+        // Don't set skyTruth to null if it failed, keep the old one if it's for the same ID
+        // but here we want to clear it if it's a new ID
+        if (dataId !== lastFetchedId.current) {
+          setSkyTruth(null);
+        }
+      } finally {
+        isFetchingSkyTruth.current = false;
       }
     };
     fetchSkyTruth();
@@ -229,28 +271,115 @@ export default function App() {
     <ErrorBoundary>
       <div className="min-h-screen bg-gray-50 font-sans text-gray-900 overflow-x-hidden">
         <div className="max-w-md mx-auto px-4 pt-4 flex justify-between items-center">
-          <button 
-            onClick={() => setView('ngo')}
-            className="flex items-center space-x-2 text-[10px] font-bold text-emerald-600 uppercase tracking-widest hover:text-emerald-700 transition-colors"
-          >
-            <Globe size={12} />
-            <span>NGO Portal</span>
-          </button>
-          <button 
-            onClick={() => setIsFarmerManagerOpen(true)}
-            className="flex items-center space-x-2 text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors"
-          >
-            <Users size={12} />
-            <span>Farmers</span>
-          </button>
-          <button 
-            onClick={handleLogout}
-            className="flex items-center space-x-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-red-500 transition-colors"
-          >
-            <LogOut size={12} />
-            <span>Logout</span>
-          </button>
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setView('partner')}
+              className="flex items-center space-x-2 text-[10px] font-bold text-emerald-600 uppercase tracking-widest hover:text-emerald-700 transition-colors"
+            >
+              <Globe size={12} />
+              <span>Intelligent Soil Partner Portal</span>
+            </button>
+            <button 
+              onClick={() => setIsMobileAccessOpen(true)}
+              className="flex items-center space-x-2 text-[10px] font-bold text-amber-600 uppercase tracking-widest hover:text-amber-700 transition-colors"
+            >
+              <Smartphone size={12} />
+              <span>Mobile</span>
+            </button>
+          </div>
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setIsFarmerManagerOpen(true)}
+              className="flex items-center space-x-2 text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors"
+            >
+              <Users size={12} />
+              <span>Farmers</span>
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="flex items-center space-x-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest hover:text-red-500 transition-colors"
+            >
+              <LogOut size={12} />
+              <span>Logout</span>
+            </button>
+          </div>
         </div>
+
+        <AnimatePresence>
+          {isMobileAccessOpen && (
+            <div 
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+              onClick={() => setIsMobileAccessOpen(false)}
+            >
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="bg-white p-8 rounded-3xl shadow-2xl max-w-xs w-full text-center space-y-6 relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button 
+                  onClick={() => setIsMobileAccessOpen(false)}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2"
+                >
+                  <CloseIcon size={20} />
+                </button>
+                <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+                  <QrCode size={32} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-gray-900">Mobile Access</h3>
+                  <p className="text-gray-500 text-xs">Scan this code with your smartphone to open the app directly.</p>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border border-gray-100 flex justify-center shadow-inner">
+                  <QRCodeCanvas 
+                    id="mobile-qr-code"
+                    value={appUrl} 
+                    size={180}
+                    level="H"
+                    includeMargin={true}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <button
+                    onClick={downloadQRCode}
+                    className="w-full flex items-center justify-center space-x-2 bg-indigo-50 text-indigo-600 py-3 rounded-xl font-bold hover:bg-indigo-100 transition-all active:scale-95"
+                  >
+                    <Download size={18} />
+                    <span>Download QR Code</span>
+                  </button>
+                  <button
+                    onClick={() => setIsMobileAccessOpen(false)}
+                    className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-all active:scale-95"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Or open this link:</p>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex-1 bg-gray-50 p-2 rounded-xl border border-gray-100 break-all text-[10px] font-mono text-indigo-600">
+                      {appUrl}
+                    </div>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(appUrl);
+                        setToast({ message: 'Link copied!', isVisible: true });
+                      }}
+                      className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100"
+                      title="Copy Link"
+                    >
+                      <Download size={14} className="rotate-180" />
+                    </button>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-[10px] text-gray-400 italic">Note: If you get a 403 error, make sure you are using the "Shared" version of the app.</p>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence mode="wait">
           {view === 'dashboard' ? (
@@ -269,6 +398,7 @@ export default function App() {
                   setSelectedSoilData(data);
                   setView('forecast');
                 }}
+                onAddFarmer={() => setIsFarmerManagerOpen(true)}
                 farmers={farmers}
                 language={language}
               />
@@ -310,13 +440,16 @@ export default function App() {
             </motion.div>
           ) : (
             <motion.div
-              key="ngo"
+              key="partner"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.3 }}
             >
-              <NGODashboard onBack={() => setView('dashboard')} />
+              <PartnerDashboard 
+                onBack={() => setView('dashboard')} 
+                onOpenKnowledgeBase={() => setIsKnowledgeBaseOpen(true)}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -333,6 +466,9 @@ export default function App() {
           )}
           {isFarmerManagerOpen && (
             <FarmerManager user={user} onClose={() => setIsFarmerManagerOpen(false)} />
+          )}
+          {isKnowledgeBaseOpen && (
+            <KnowledgeBase onClose={() => setIsKnowledgeBaseOpen(false)} />
           )}
         </AnimatePresence>
 

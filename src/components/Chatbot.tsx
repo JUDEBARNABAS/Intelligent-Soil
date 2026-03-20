@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGeminiLive } from '../hooks/useGeminiLive';
-import { Bot, Mic, MicOff, X, MessageSquare, AlertCircle, Loader2, Video, VideoOff, Globe } from 'lucide-react';
+import { Bot, Mic, MicOff, X, MessageSquare, AlertCircle, Loader2, Video, VideoOff, Globe, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UGANDAN_LANGUAGES, UgandanLanguage, SoilData, ForecastData } from '../types';
 
@@ -28,13 +28,18 @@ export const Chatbot: React.FC<ChatbotProps> = ({
     setTargetLanguage,
     transcript,
     error,
+    status,
     connect,
     disconnect,
     startRecording,
     stopRecording,
     startCamera,
-    stopCamera
+    stopCamera,
+    switchCamera,
+    sendTextMessage
   } = useGeminiLive(apiKey, groundTruth, skyTruth);
+
+  const [textInput, setTextInput] = useState('');
 
   useEffect(() => {
     setTargetLanguage(language);
@@ -48,6 +53,9 @@ export const Chatbot: React.FC<ChatbotProps> = ({
   const handleLanguageSelect = (lang: UgandanLanguage) => {
     onLanguageChange(lang);
     setShowLanguages(false);
+    // Restart connection with new language to update system instructions
+    disconnect();
+    setTimeout(() => handleConnect(), 500);
   };
 
   useEffect(() => {
@@ -56,10 +64,23 @@ export const Chatbot: React.FC<ChatbotProps> = ({
     }
   }, [transcript]);
 
+  useEffect(() => {
+    handleConnect();
+    return () => {
+      disconnect();
+    };
+  }, []);
+
   const handleConnect = async () => {
+    if (isConnected || isConnecting) return;
     setIsConnecting(true);
-    await connect();
-    setIsConnecting(false);
+    try {
+      await connect();
+    } catch (err) {
+      console.error('Connection failed:', err);
+    } finally {
+      setIsConnecting(false);
+    }
   };
 
   const toggleRecording = () => {
@@ -78,6 +99,20 @@ export const Chatbot: React.FC<ChatbotProps> = ({
     }
   };
 
+  const handleSwitchCamera = () => {
+    if (videoRef.current) {
+      switchCamera(videoRef.current);
+    }
+  };
+
+  const handleSendText = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (textInput.trim()) {
+      sendTextMessage(textInput.trim());
+      setTextInput('');
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
       <motion.div 
@@ -92,8 +127,8 @@ export const Chatbot: React.FC<ChatbotProps> = ({
               <Bot size={24} />
             </div>
             <div>
-              <h2 className="font-bold">AI Agronomist</h2>
-              <p className="text-[10px] opacity-70 uppercase tracking-widest">Gemini Multimodal Live</p>
+              <h2 className="font-bold">Intelligent Soil Agronomist</h2>
+              <p className="text-[10px] opacity-70 uppercase tracking-widest">Expert Agricultural Advice</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -118,25 +153,52 @@ export const Chatbot: React.FC<ChatbotProps> = ({
         <AnimatePresence>
           {showLanguages && (
             <motion.div 
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="bg-indigo-50 border-b border-indigo-100 overflow-hidden"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="absolute inset-0 bg-white/95 backdrop-blur-md z-[70] flex flex-col p-6"
             >
-              <div className="p-3 grid grid-cols-3 gap-2">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-indigo-900">Select Language</h3>
+                <button 
+                  onClick={() => setShowLanguages(false)}
+                  className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center hover:bg-indigo-100 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-3 overflow-y-auto">
                 {UGANDAN_LANGUAGES.map(lang => (
                   <button
                     key={lang.code}
                     onClick={() => handleLanguageSelect(lang.code)}
-                    className={`px-2 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${language === lang.code ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-indigo-600 hover:bg-indigo-100'}`}
+                    className={`flex items-center justify-between px-6 py-4 rounded-2xl text-sm font-bold transition-all ${language === lang.code ? 'bg-indigo-600 text-white shadow-xl scale-[1.02]' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
                   >
-                    {lang.name}
+                    <div className="flex items-center space-x-3">
+                      <Globe size={18} className={language === lang.code ? 'text-white' : 'text-indigo-400'} />
+                      <span>{lang.name}</span>
+                    </div>
+                    {language === lang.code && <div className="w-3 h-3 bg-white rounded-full shadow-sm" />}
                   </button>
                 ))}
               </div>
+              <p className="mt-6 text-[10px] text-center text-gray-400 uppercase tracking-widest font-medium">
+                The agronomist will restart to apply the language change
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 p-2 text-red-600 text-[10px] flex items-center justify-between px-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-1 h-1 bg-red-600 rounded-full" />
+              <span>{error}</span>
+            </div>
+            <button onClick={() => handleConnect()} className="underline font-bold">Retry</button>
+          </div>
+        )}
 
         <div className="relative bg-black aspect-video overflow-hidden">
           <video 
@@ -153,11 +215,34 @@ export const Chatbot: React.FC<ChatbotProps> = ({
             </div>
           )}
           {isCameraOn && (
-            <div className="absolute top-4 left-4 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse flex items-center space-x-1">
-              <div className="w-1.5 h-1.5 bg-white rounded-full" />
-              <span>LIVE FEED</span>
-            </div>
+            <>
+              <div className="absolute top-4 left-4 bg-red-500/90 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse flex items-center space-x-1">
+                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                <span>LIVE FEED</span>
+              </div>
+              <button 
+                onClick={handleSwitchCamera}
+                className="absolute top-4 right-4 bg-black/40 backdrop-blur-md text-white p-2 rounded-full hover:bg-black/60 transition-colors"
+                title="Switch Camera"
+              >
+                <RefreshCw size={18} />
+              </button>
+            </>
           )}
+          <div className="absolute bottom-4 left-4 flex flex-col space-y-1">
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
+              <span className="text-[10px] text-white font-bold drop-shadow-md uppercase tracking-wider">
+                {status}
+              </span>
+            </div>
+            {isConnected && (
+              <div className="flex items-center space-x-1 text-[8px] text-white/70 font-bold uppercase tracking-widest">
+                <div className="w-1 h-1 bg-white/50 rounded-full" />
+                <span>Knowledge Base Active</span>
+              </div>
+            )}
+          </div>
         </div>
 
         <div 
@@ -221,44 +306,57 @@ export const Chatbot: React.FC<ChatbotProps> = ({
         </div>
 
         {isConnected && (
-          <div className="p-6 bg-white border-t border-gray-100 flex flex-col items-center space-y-4">
-            <div className="flex items-center space-x-6">
-              <div className="flex flex-col items-center space-y-2">
+          <div className="p-4 bg-white border-t border-gray-100 space-y-4">
+            <form onSubmit={handleSendText} className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1 bg-gray-100 border-none rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 transition-all"
+              />
+              <button 
+                type="submit"
+                disabled={!textInput.trim()}
+                className="w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center disabled:opacity-50 disabled:bg-gray-400 transition-all"
+              >
+                <MessageSquare size={18} />
+              </button>
+            </form>
+
+            <div className="flex items-center justify-center space-x-8">
+              <div className="flex flex-col items-center space-y-1">
                 <button 
                   onClick={toggleRecording}
-                  className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all active:scale-90 ${
+                  className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
                     isRecording 
                       ? 'bg-red-500 text-white hover:bg-red-600' 
                       : 'bg-indigo-600 text-white hover:bg-indigo-700'
                   }`}
                 >
-                  {isRecording ? <MicOff size={24} /> : <Mic size={24} />}
+                  {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
                 </button>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
                   {isRecording ? 'Mute' : 'Unmute'}
                 </span>
               </div>
 
-              <div className="flex flex-col items-center space-y-2">
+              <div className="flex flex-col items-center space-y-1">
                 <button 
                   onClick={toggleCamera}
-                  className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all active:scale-90 ${
+                  className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 ${
                     isCameraOn 
                       ? 'bg-green-500 text-white hover:bg-green-600' 
                       : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                   }`}
                 >
-                  {isCameraOn ? <Video size={24} /> : <VideoOff size={24} />}
+                  {isCameraOn ? <Video size={20} /> : <VideoOff size={20} />}
                 </button>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
                   {isCameraOn ? 'Cam On' : 'Cam Off'}
                 </span>
               </div>
             </div>
-            
-            <p className="text-[10px] text-gray-400 font-medium">
-              {isRecording ? 'AI is listening to you...' : 'Tap microphone to speak'}
-            </p>
           </div>
         )}
       </motion.div>

@@ -61,5 +61,5 @@ export interface NGODashboardData {
   totalFarmers: number;
   totalTests: number;
   recentTests: SoilData[];
-  farmers: Farmer[];
+  farmers: (Farmer & { latestTest: SoilData | null })[];
 }

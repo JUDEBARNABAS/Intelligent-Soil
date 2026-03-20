@@ -1,12 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, getDocFromServer, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, getDocFromServer, Timestamp, orderBy } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase SDK
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
 export { signInWithPopup, signOut, onAuthStateChanged };
@@ -76,4 +78,5 @@ async function testConnection() {
 }
 testConnection();
 
-export { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, Timestamp };
+export { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, Timestamp, orderBy };
+export { ref, uploadBytes, getDownloadURL };

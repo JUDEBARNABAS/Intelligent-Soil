@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Farmer } from '../types';
+import { Farmer, UserProfile } from '../types';
 import { db, collection, query, where, onSnapshot, addDoc, deleteDoc, doc, handleFirestoreError, OperationType } from '../firebase';
 import { User } from 'firebase/auth';
 import { UserPlus, Trash2, X, Plus, Phone, Mail, MapPin, Home } from 'lucide-react';
@@ -7,10 +7,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 interface FarmerManagerProps {
   user: User;
+  userProfile: UserProfile | null;
   onClose: () => void;
 }
 
-export const FarmerManager: React.FC<FarmerManagerProps> = ({ user, onClose }) => {
+export const FarmerManager: React.FC<FarmerManagerProps> = ({ user, userProfile, onClose }) => {
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newFarmer, setNewFarmer] = useState({
@@ -47,6 +48,7 @@ export const FarmerManager: React.FC<FarmerManagerProps> = ({ user, onClose }) =
       await addDoc(collection(db, path), {
         ...newFarmer,
         uid: user.uid,
+        partnerId: userProfile?.partnerId || null,
         createdAt: Date.now()
       });
       setNewFarmer({ name: '', phone: '', email: '', farmName: '', farmLocation: '' });

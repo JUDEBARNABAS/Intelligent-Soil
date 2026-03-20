@@ -4,14 +4,20 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import admin from 'firebase-admin';
-import firebaseConfig from './firebase-applet-config.json' assert { type: 'json' };
+import fs from 'fs';
+import { Farmer, SoilData } from './src/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load Firebase config safely
+const firebaseConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'firebase-applet-config.json'), 'utf8'));
+
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
+
+  console.log(`Starting server on port ${PORT}...`);
 
   // Initialize Firebase Admin
   // In AI Studio Build environment, the default credentials should be available
@@ -21,21 +27,17 @@ async function startServer() {
     });
   }
 
-  const db = admin.firestore();
-  if (firebaseConfig.firestoreDatabaseId) {
-    // Note: firebase-admin doesn't easily support named databases via initializeApp 
-    // in the same way as the client SDK without a service account.
-    // However, we can try to access it if needed.
-    // For now, we'll assume the default database or that the environment handles it.
-  }
+  const db = firebaseConfig.firestoreDatabaseId 
+    ? admin.firestore(firebaseConfig.firestoreDatabaseId)
+    : admin.firestore();
 
   app.use(cors());
   app.use(express.json());
 
-  // API Key Middleware for NGO endpoints
+  // API Key Middleware for Partner endpoints
   const validateApiKey = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const apiKey = req.headers['x-api-key'];
-    const validKey = process.env.NGO_API_KEY;
+    const validKey = process.env.PARTNER_API_KEY || process.env.NGO_API_KEY;
 
     // Allow internal requests from the app itself (same origin)
     const referer = req.headers.referer || '';
@@ -52,11 +54,24 @@ async function startServer() {
     res.status(401).json({ error: 'Invalid or missing API key' });
   };
 
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', firebase: !!admin.apps.length });
+  app.get('/api/health', async (req, res) => {
+    try {
+      const [farmersSnap, testsSnap] = await Promise.all([
+        db.collection('farmers').count().get(),
+        db.collection('soil_tests').count().get()
+      ]);
+      res.json({ 
+        status: 'ok', 
+        firebase: !!admin.apps.length,
+        farmerCount: farmersSnap.data().count,
+        testCount: testsSnap.data().count
+      });
+    } catch (error: any) {
+      res.json({ status: 'error', message: error.message });
+    }
   });
 
-  // API Routes for NGOs
+  // API Routes for Partners
   app.get('/api/farmers', validateApiKey, async (req, res) => {
     try {
       const snapshot = await db.collection('farmers').orderBy('createdAt', 'desc').get();
@@ -80,23 +95,39 @@ async function startServer() {
     }
   });
 
-  app.get('/api/ngo/dashboard', validateApiKey, async (req, res) => {
+  app.get('/api/partner/dashboard', validateApiKey, async (req, res) => {
     try {
-      const [farmersSnap, testsSnap] = await Promise.all([
-        db.collection('farmers').get(),
-        db.collection('soil_tests').orderBy('timestamp', 'desc').limit(100).get()
-      ]);
+      console.log('[API] Fetching partner dashboard data...');
+      const farmersSnap = await db.collection('farmers').get();
+      const testsSnap = await db.collection('soil_tests').orderBy('timestamp', 'desc').get();
 
-      const farmers = farmersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const tests = testsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log(`[API] Found ${farmersSnap.size} farmers and ${testsSnap.size} soil tests.`);
+
+      const farmers = farmersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as Farmer }));
+      const tests = testsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as SoilData }));
+
+      // Map latest test to each farmer for easier frontend consumption
+      const farmersWithLatestTest = farmers.map(farmer => {
+        const latestTest = tests.find(t => t.farmerId === farmer.id);
+        return {
+          ...farmer,
+          latestTest: latestTest || null
+        };
+      });
 
       res.json({
         totalFarmers: farmers.length,
         totalTests: tests.length,
-        recentTests: tests,
-        farmers: farmers
+        recentTests: tests.slice(0, 100), // Keep recent tests for charts
+        farmers: farmersWithLatestTest,
+        debug: {
+          farmersCount: farmersSnap.size,
+          testsCount: testsSnap.size,
+          timestamp: Date.now()
+        }
       });
     } catch (error: any) {
+      console.error('[API] Dashboard Error:', error);
       res.status(500).json({ error: error.message });
     }
   });
